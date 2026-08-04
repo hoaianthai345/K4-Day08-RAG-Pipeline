@@ -25,6 +25,7 @@ CHUNK_SIZE = 800
 # 100 ký tự đệm ở ranh giới để câu quan trọng không bị cắt đôi giữa 2 chunk.
 CHUNK_OVERLAP = 100
 CHUNKING_METHOD = "recursive"  # recursive: an toàn cho markdown pha văn xuôi + list
+MIN_CHUNK_CHARS = 50   # bỏ mảnh vụn ("A.", "1.") — không mang thông tin, chỉ làm nhiễu
 
 # bge-m3: multilingual, mạnh với tiếng Việt, 1024 chiều, chạy local không cần API key.
 EMBEDDING_MODEL = "BAAI/bge-m3"
@@ -113,6 +114,8 @@ def chunk_documents(documents: list[dict]) -> list[dict]:
     chunks = []
     for doc in documents:
         for i, text in enumerate(splitter.split_text(doc["content"])):
+            if len(text.strip()) < MIN_CHUNK_CHARS:
+                continue  # mảnh vụn (tiêu đề lẻ, gạch đầu dòng rỗng) chỉ làm nhiễu retrieval
             chunks.append({
                 "content": text,
                 "metadata": {**doc["metadata"], "chunk_index": i},
