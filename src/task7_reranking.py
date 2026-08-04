@@ -1,8 +1,15 @@
-"""Task 7: reranking utilities (Jina cross-encoder, MMR and RRF)."""
+"""Task 7: reranking utilities (OpenAI LLM, Jina, MMR and RRF)."""
 
 import os
+import json
+from pathlib import Path
 
 import numpy as np
+from dotenv import load_dotenv
+
+
+load_dotenv(Path(__file__).parent.parent / ".env")
+OPENAI_RERANK_MODEL = os.getenv("OPENAI_RERANK_MODEL", "gpt-4o-mini")
 
 
 def rerank_cross_encoder(query: str, candidates: list[dict], top_k: int = 5) -> list[dict]:
@@ -28,6 +35,68 @@ def rerank_cross_encoder(query: str, candidates: list[dict], top_k: int = 5) -> 
         if isinstance(index, int) and 0 <= index < len(candidates):
             results.append({**candidates[index], "score": float(result.get("relevance_score", 0.0))})
     return results
+
+
+def rerank_openai(query: str, candidates: list[dict], top_k: int = 5) -> list[dict]:
+    """Use a lightweight LLM to judge relevance after RRF candidate fusion.
+
+    RRF narrows the candidate set; this method then reads query/document pairs
+    and returns an explicit relevance ordering.  On unavailable API or invalid
+    model output it preserves the RRF ordering, so retrieval stays available.
+    """
+    if not candidates or top_k <= 0:
+        return []
+    fallback = sorted((item.copy() for item in candidates), key=lambda x: x.get("score", 0), reverse=True)
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        return fallback[:top_k]
+
+    documents = [
+        {"index": index, "text": item.get("content", "")[:1200]}
+        for index, item in enumerate(candidates)
+    ]
+    prompt = (
+        "Rank the candidate passages by how directly they answer the user's question. "
+        "Prioritize factual, specific passages; do not invent facts. "
+        "Return JSON only in this shape: {\"ranked_indices\":[...]} using each "
+        "candidate index exactly once.\n\n"
+        f"Question: {query}\n\nCandidates:\n{json.dumps(documents, ensure_ascii=False)}"
+    )
+    try:
+        from openai import OpenAI
+
+        response = OpenAI(api_key=api_key).chat.completions.create(
+            model=OPENAI_RERANK_MODEL,
+            messages=[
+                {"role": "system", "content": "You are a precise retrieval reranker."},
+                {"role": "user", "content": prompt},
+            ],
+            response_format={"type": "json_object"},
+            temperature=0,
+        )
+        payload = json.loads(response.choices[0].message.content or "{}")
+        ranked_indices = payload.get("ranked_indices", [])
+        valid = []
+        for index in ranked_indices:
+            if isinstance(index, int) and 0 <= index < len(candidates) and index not in valid:
+                valid.append(index)
+        if not valid:
+            return fallback[:top_k]
+        # Keep every candidate deterministically, even if the provider returns a
+        # partial list, then expose a normalized rank signal separately from RRF.
+        valid.extend(index for index in range(len(candidates)) if index not in valid)
+        total = len(valid)
+        results = []
+        for rank, index in enumerate(valid, 1):
+            item = candidates[index].copy()
+            scores = dict(item.get("retrieval_scores", {}))
+            scores["rerank_relevance"] = round((total - rank + 1) / total, 4)
+            item["retrieval_scores"] = scores
+            item["rerank_rank"] = rank
+            results.append(item)
+        return results[:top_k]
+    except Exception:
+        return fallback[:top_k]
 
 
 def rerank_mmr(query_embedding: list[float], candidates: list[dict], top_k: int = 5,
@@ -81,6 +150,8 @@ def rerank(query: str, candidates: list[dict], top_k: int = 5, method: str = "rr
         return []
     if method == "cross_encoder":
         return rerank_cross_encoder(query, candidates, top_k)
+    if method == "openai":
+        return rerank_openai(query, candidates, top_k)
     if method == "mmr":
         from .task4_chunking_indexing import get_embedding_model
         embedding = get_embedding_model().encode(query, normalize_embeddings=True).tolist()

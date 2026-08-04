@@ -47,6 +47,9 @@ def render_sources(sources: list[dict]) -> None:
                     details.append(f"Dense cosine: `{dense:.4f}`")
                 if bm25 is not None:
                     details.append(f"BM25: `{bm25:.2f}`")
+                rerank_relevance = score_details.get("rerank_relevance")
+                if rerank_relevance is not None:
+                    details.append(f"Rerank: `{rerank_relevance:.2f}`")
                 score_display = " | ".join(details)
             else:
                 score_display = f"score: `{source.get('score', 0):.4f}`"
@@ -69,6 +72,7 @@ def trace_table(results: list[dict]) -> list[dict]:
             "Score": round(float(item.get("score", 0)), 4),
             "Dense cosine": None if scores.get("dense_cosine") is None else round(scores["dense_cosine"], 4),
             "BM25": None if scores.get("bm25") is None else round(scores["bm25"], 4),
+            "Rerank relevance": None if scores.get("rerank_relevance") is None else round(scores["rerank_relevance"], 4),
             "Preview": item.get("content", "")[:180],
         })
     return rows
@@ -83,14 +87,14 @@ def render_trace(trace: dict) -> None:
         f"Threshold: {trace['score_threshold']:.2f} | {status}"
     )
     dense_tab, bm25_tab, fusion_tab, final_tab = st.tabs([
-        "1. Dense / Chroma", "2. BM25", "3. RRF fusion", "4. Final context"
+        "1. Dense / Chroma", "2. BM25", "3. RRF fusion", "4. Rerank + context"
     ])
     with dense_tab:
         st.dataframe(trace_table(trace["dense_results"]), use_container_width=True, hide_index=True)
     with bm25_tab:
         st.dataframe(trace_table(trace["sparse_results"]), use_container_width=True, hide_index=True)
     with fusion_tab:
-        st.caption("RRF score chỉ dùng xếp hạng; không phải confidence score.")
+        st.caption("RRF score chỉ dùng fusion; không phải confidence score.")
         st.dataframe(trace_table(trace["fused_results"]), use_container_width=True, hide_index=True)
     with final_tab:
         render_sources(trace["final_results"])

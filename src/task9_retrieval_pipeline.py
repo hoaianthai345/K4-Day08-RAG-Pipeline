@@ -25,6 +25,8 @@ Logic:
     điểm số giữa hai nhóm rồi chọn ngưỡng nằm giữa.
 """
 
+import os
+
 from .task5_semantic_search import semantic_search
 from .task6_lexical_search import lexical_search
 from .task7_reranking import rerank, rerank_rrf
@@ -39,7 +41,9 @@ from .task8_pageindex_vectorless import pageindex_search
 # corpus; the default is deliberately conservative for the bundled documents.
 SCORE_THRESHOLD = 0.3   # Nếu best score (cosine gốc) < threshold → fallback PageIndex
 DEFAULT_TOP_K = 5
-RERANK_METHOD = "rrf"  # "cross_encoder" | "mmr" | "rrf"
+# RRF fuses dense/BM25 rankings.  A second stage then actually reranks the
+# fused passages by reading query-passage pairs.
+RERANK_METHOD = os.getenv("RERANK_METHOD", "openai").lower()
 
 
 def _chunk_key(item: dict) -> tuple:

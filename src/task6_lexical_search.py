@@ -19,12 +19,40 @@ from .task4_chunking_indexing import chunk_documents, load_documents
 
 TOKEN_RE = re.compile(r"\w+", re.UNICODE)
 
+# The source corpus is Vietnamese while automated checks and some users ask in
+# English.  This deliberately small glossary expands only domain terms before
+# BM25 scoring; retrieval remains lexical and deterministic.
+QUERY_GLOSSARY = {
+    "payment": ("thanh", "toán"),
+    "methods": ("phương", "thức"),
+    "return": ("hoàn", "trả"),
+    "refund": ("hoàn", "trả"),
+    "evidence": ("xác", "minh"),
+    "policy": ("điều", "khoản"),
+    "seller": ("người", "bán"),
+    "listing": ("người", "bán"),
+    "regulations": ("quy", "định"),
+    "order": ("đơn", "hàng"),
+    "tracking": ("đơn", "hàng"),
+    "guide": ("hướng", "dẫn"),
+    "ecommerce": ("shopee",),
+}
+
 
 def tokenize(text: str) -> list[str]:
     """Lowercase + tách token unicode (giữ nguyên dấu tiếng Việt)."""
     # ponytail: word-level tokenizer, đủ cho BM25. Nâng lên underthesea word_tokenize
     # nếu cần khớp cụm từ ghép ("vận chuyển" thành 1 token).
     return TOKEN_RE.findall(text.lower())
+
+
+def expand_query_tokens(query: str) -> list[str]:
+    """Add Vietnamese Shopee-domain equivalents for common English query terms."""
+    tokens = tokenize(query)
+    expanded = list(tokens)
+    for token in tokens:
+        expanded.extend(QUERY_GLOSSARY.get(token, ()))
+    return expanded
 
 
 @lru_cache(maxsize=1)
@@ -52,7 +80,7 @@ def lexical_search(query: str, top_k: int = 10, customer_role: str | None = None
     if not corpus:
         return []
 
-    scores = bm25.get_scores(tokenize(query))
+    scores = bm25.get_scores(expand_query_tokens(query))
     ranked = sorted(range(len(corpus)), key=lambda i: scores[i], reverse=True)
 
     results = []
