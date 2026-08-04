@@ -1,6 +1,6 @@
 # RAG Evaluation Results
 
-**Ngày đo:** 2026-08-04 · **Corpus:** 8 tài liệu → 92 chunks · **Golden set:** 24 câu
+**Ngày đo:** 2026-08-04 · **Corpus:** 8 tài liệu → 92 chunks · **Golden set:** 24 câu.
 **Bảng điểm thô từng câu:** `raw_A_hybrid_rerank.csv`, `raw_B_baseline_no_rerank.csv`
 (chạy lại `python -m group_project.evaluation.eval_pipeline` sẽ sinh thêm `results_raw_tables.md`)
 
