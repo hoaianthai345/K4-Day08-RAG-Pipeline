@@ -35,17 +35,12 @@ CHUNK_OVERLAP = 100
 CHUNKING_METHOD = "recursive"
 MIN_CHUNK_CHARS = 50   # bỏ mảnh vụn ("A.", "1.") — không mang thông tin, chỉ làm nhiễu
 
-# OpenAI embeddings API: no local model download is required. Keep this model
-# identical for indexing (Task 4) and query embedding (Task 5).
-EMBEDDING_MODEL = os.getenv(
-    "OPENAI_EMBEDDING_MODEL",
-    "text-embedding-3-large",
-)
-_DEFAULT_DIMENSIONS = {
-    "text-embedding-3-small": 1536,
-    "text-embedding-3-large": 3072,
-}
-EMBEDDING_DIM = int(os.getenv("OPENAI_EMBEDDING_DIM", _DEFAULT_DIMENSIONS.get(EMBEDDING_MODEL, 3072)))
+# bge-m3: multilingual, mạnh với tiếng Việt, 1024 chiều, chạy local không cần API key.
+# Đã thử chuyển sang OpenAI text-embedding-3-large (commit c6c8eed) và phải quay lại:
+# cần API key + tốn tiền mỗi lần reindex, và 3072 chiều không khớp chroma_db đã index
+# ở 1024. Model dùng để index (Task 4) và để embed query (Task 5) BẮT BUỘC giống nhau.
+EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "BAAI/bge-m3")
+EMBEDDING_DIM = int(os.getenv("EMBEDDING_DIM", 1024))
 
 VECTOR_STORE = "chromadb"  # local persistent, cosine search, không cần Docker
 COLLECTION_NAME = "ecommerce_support_docs"
@@ -186,48 +181,10 @@ def chunk_documents(documents: list[dict], method: str | None = None) -> list[di
 
 @lru_cache(maxsize=1)
 def get_embedding_model():
-    from openai import OpenAI
+    """SentenceTransformer dùng chung cho index (Task 4) và query (Task 5)."""
+    from sentence_transformers import SentenceTransformer
 
-    api_key = os.getenv("OPENAI_API_KEY")
-    if not api_key:
-        raise RuntimeError("Thiếu OPENAI_API_KEY trong .env")
-
-    return OpenAIEmbeddingModel(OpenAI(api_key=api_key))
-
-
-class OpenAIEmbeddingModel:
-    def __init__(self, client):
-        self.client = client
-
-    def encode(self, texts, **_):
-        is_single = isinstance(texts, str)
-        inputs = [texts] if is_single else list(texts)
-
-        response = self.client.embeddings.create(
-            model=EMBEDDING_MODEL,
-            input=inputs,
-            encoding_format="float",
-        )
-        vectors = [item.embedding for item in response.data]
-        return vectors[0] if is_single else vectors
-
-class _HashingEmbeddingModel:
-    """Fast, deterministic 1024-dimension fallback compatible with Chroma."""
-
-    def __init__(self):
-        from sklearn.feature_extraction.text import HashingVectorizer
-        self.vectorizer = HashingVectorizer(
-            n_features=EMBEDDING_DIM,
-            alternate_sign=False,
-            norm="l2",
-            lowercase=True,
-        )
-
-    def encode(self, texts, **_: object):
-        import numpy as np
-        single_text = isinstance(texts, str)
-        rows = self.vectorizer.transform([texts] if single_text else texts).toarray()
-        return rows[0] if single_text else np.asarray(rows)
+    return SentenceTransformer(EMBEDDING_MODEL)
 
 
 def embed_chunks(chunks: list[dict]) -> list[dict]:
