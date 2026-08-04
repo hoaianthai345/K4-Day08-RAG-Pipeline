@@ -36,17 +36,17 @@ st.set_page_config(
 
 with st.sidebar:
     st.title("🛒 E-commerce Support RAG")
-    st.caption("Trợ lý hỏi đáp về chính sách thương mại điện tử và hỗ trợ khách hàng (đổi trả, thanh toán, bảo mật, người bán)")
+    st.caption("Trợ lý hỏi đáp về SPayLater, SEasy Vay Tiền Nhanh và SEasy Cho vay Người Bán trên Shopee")
 
     st.divider()
 
     st.subheader("💡 Câu hỏi gợi ý")
     suggestions = [
-        "Thời hạn yêu cầu trả hàng/hoàn tiền là bao lâu?",
-        "Shopee hỗ trợ những phương thức thanh toán nào?",
-        "Làm sao để đổi phương thức thanh toán đơn hàng?",
-        "Quy định về đăng bán sản phẩm cho người bán?",
-        "Cách mua hàng trên Shopee của quốc gia khác?",
+        "SPayLater là gì và khoản tín dụng được cung cấp như thế nào?",
+        "Điều kiện nào để được cấp khoản tín dụng qua SPayLater?",
+        "Nếu thanh toán SPayLater trễ hạn thì có thể xảy ra điều gì?",
+        "SEasy Vay Tiền Nhanh được dùng cho mục đích nào?",
+        "Người Bán cần lưu ý gì khi sử dụng dịch vụ SEasy Cho vay Người Bán?",
     ]
     for s in suggestions:
         if st.button(s, use_container_width=True, key=f"sug_{s[:20]}"):
@@ -87,7 +87,19 @@ for msg in st.session_state.messages:
                     source_name = meta.get("source", "Unknown")
                     doc_type = meta.get("type", "unknown")
                     score = src.get("score", 0)
-                    st.markdown(f"**[{i}] {source_name}** `{doc_type}` | score: `{score:.4f}`")
+                    score_details = src.get("retrieval_scores", {})
+                    if score_details:
+                        dense = score_details.get("dense_cosine")
+                        bm25 = score_details.get("bm25")
+                        details = [f"RRF: `{score:.4f}`"]
+                        if dense is not None:
+                            details.append(f"Dense cosine: `{dense:.4f}`")
+                        if bm25 is not None:
+                            details.append(f"BM25: `{bm25:.2f}`")
+                        score_display = " | ".join(details)
+                    else:
+                        score_display = f"score: `{score:.4f}`"
+                    st.markdown(f"**[{i}] {source_name}** `{doc_type}` | {score_display}")
                     st.text(src.get("content", "")[:300] + "...")
                     st.divider()
 
@@ -125,10 +137,22 @@ if query:
                 with st.expander(f"📚 Nguồn tham khảo ({len(sources)} chunks)"):
                     for i, src in enumerate(sources, 1):
                         meta = src.get("metadata", {})
-                        source_name = meta.get("source", "Unknown")
-                        doc_type = meta.get("type", "unknown")
-                        score = src.get("score", 0)
-                        st.markdown(f"**[{i}] {source_name}** `{doc_type}` | score: `{score:.4f}`")
+                    source_name = meta.get("source", "Unknown")
+                    doc_type = meta.get("type", "unknown")
+                    score = src.get("score", 0)
+                    score_details = src.get("retrieval_scores", {})
+                    if score_details:
+                        dense = score_details.get("dense_cosine")
+                        bm25 = score_details.get("bm25")
+                        details = [f"RRF: `{score:.4f}`"]
+                        if dense is not None:
+                            details.append(f"Dense cosine: `{dense:.4f}`")
+                        if bm25 is not None:
+                            details.append(f"BM25: `{bm25:.2f}`")
+                        score_display = " | ".join(details)
+                    else:
+                        score_display = f"score: `{score:.4f}`"
+                    st.markdown(f"**[{i}] {source_name}** `{doc_type}` | {score_display}")
                         st.text(src.get("content", "")[:300] + "...")
                         st.divider()
 
