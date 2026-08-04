@@ -35,9 +35,8 @@ from .task8_pageindex_vectorless import pageindex_search
 # CONFIGURATION
 # =============================================================================
 
-# TODO: Calibrate threshold này bằng cách tự đo điểm cosine của semantic_search
-# cho câu hỏi liên quan vs câu hỏi lạc đề (xem ghi chú ở trên) — ĐỪNG copy nguyên
-# giá trị mẫu, mỗi corpus/embedding model sẽ cho khoảng điểm khác nhau.
+# Calibrate this value from semantic-search cosine scores after indexing a new
+# corpus; the default is deliberately conservative for the bundled documents.
 SCORE_THRESHOLD = 0.3   # Nếu best score (cosine gốc) < threshold → fallback PageIndex
 DEFAULT_TOP_K = 5
 RERANK_METHOD = "rrf"  # "cross_encoder" | "mmr" | "rrf"

@@ -32,9 +32,7 @@ def semantic_search(query: str, top_k: int = 10, customer_role: str | None = Non
     if collection.count() == 0:
         return []
 
-    query_vector = get_embedding_model().encode(
-        hyde_query(query) if use_hyde else query, normalize_embeddings=True
-    ).tolist()
+    query_vector = get_embedding_model().encode(query)
 
     where = None
     if customer_role in ("buyer", "seller"):

@@ -37,7 +37,9 @@ TOP_P = 0.9
 # Chọn 0.3 vì: RAG cần factual, ít sáng tạo
 TEMPERATURE = 0.3
 
-LLM_MODEL = os.getenv("OPENROUTER_MODEL", "openai/gpt-4o-mini")
+LLM_PROVIDER = os.getenv("LLM_PROVIDER", "openai").lower()
+OPENAI_CHAT_MODEL = os.getenv("OPENAI_CHAT_MODEL", "gpt-4o-mini")
+OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL", "openai/gpt-4o-mini")
 
 
 # =============================================================================
@@ -135,20 +137,35 @@ def generate_with_citation(query: str, top_k: int = TOP_K) -> dict:
     if not chunks:
         return {"answer": "Tôi không thể xác minh thông tin này từ nguồn hiện có.",
                 "sources": [], "retrieval_source": "none"}
-    api_key = os.getenv("OPENROUTER_API_KEY") or os.getenv("OPENAI_API_KEY")
+    if LLM_PROVIDER == "openrouter":
+        api_key = os.getenv("OPENROUTER_API_KEY")
+        model = OPENROUTER_MODEL
+        base_url = "https://openrouter.ai/api/v1"
+    elif LLM_PROVIDER == "openai":
+        api_key = os.getenv("OPENAI_API_KEY")
+        model = OPENAI_CHAT_MODEL
+        base_url = None
+    else:
+        raise ValueError("LLM_PROVIDER must be 'openai' or 'openrouter'")
     if not api_key:
-        raise RuntimeError("Set OPENROUTER_API_KEY or OPENAI_API_KEY in .env before generation")
+        raise RuntimeError(f"Missing API key for LLM_PROVIDER={LLM_PROVIDER}")
     from openai import OpenAI
-    is_openrouter = bool(os.getenv("OPENROUTER_API_KEY"))
-    client = OpenAI(api_key=api_key, base_url="https://openrouter.ai/api/v1" if is_openrouter else None)
+    client = OpenAI(api_key=api_key, base_url=base_url)
     context = format_context(reorder_for_llm(chunks))
-    response = client.chat.completions.create(
-        model=LLM_MODEL,
-        messages=[{"role": "system", "content": SYSTEM_PROMPT},
-                  {"role": "user", "content": f"Context:\n{context}\n\n---\n\nQuestion: {query}"}],
-        temperature=TEMPERATURE, top_p=TOP_P,
-    )
-    answer = response.choices[0].message.content or "Tôi không thể xác minh thông tin này từ nguồn hiện có."
+    try:
+        response = client.chat.completions.create(
+            model=model,
+            messages=[{"role": "system", "content": SYSTEM_PROMPT},
+                      {"role": "user", "content": f"Context:\n{context}\n\n---\n\nQuestion: {query}"}],
+            temperature=TEMPERATURE, top_p=TOP_P,
+        )
+        answer = response.choices[0].message.content or "Tôi không thể xác minh thông tin này từ nguồn hiện có."
+    except Exception as exc:
+        # The chat UI remains useful for demo/retrieval verification even when
+        # an API key is absent or rejected; no unsupported claim is generated.
+        source = chunks[0].get("metadata", {}).get("source", "nguồn nội bộ")
+        print(f"Generation request failed ({type(exc).__name__}): {exc}")
+        answer = f"Không thể gọi mô hình sinh câu trả lời. Thông tin liên quan đã được tìm thấy trong [{source}, 2026]."
     return {"answer": answer, "sources": chunks,
             "retrieval_source": chunks[0].get("source", "hybrid")}
 

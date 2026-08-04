@@ -25,17 +25,20 @@ tiêu đề mà không có nội dung thật. Đổi sang bài viết khác cùn
 và chỉ dùng nguồn công khai/được phép chia sẻ.
 """
 
+import re
+import unicodedata
 from pathlib import Path
 
 import requests
 
 DATA_DIR = Path(__file__).parent.parent / "data" / "landing" / "legal"
+STANDARDIZED_DIR = Path(__file__).parent.parent / "data" / "standardized" / "legal"
 
 
 def setup_directory():
     """Tạo thư mục data/landing/legal/ nếu chưa có."""
     DATA_DIR.mkdir(parents=True, exist_ok=True)
-    print(f"✓ Thư mục đã sẵn sàng: {DATA_DIR}")
+    print(f"Directory ready: {DATA_DIR}")
 
 
 def download_file(url: str, filename: str, timeout: int = 30) -> Path:
@@ -65,8 +68,41 @@ def download_documents(documents: dict[str, str]) -> list[Path]:
     return [download_file(url, filename) for filename, url in documents.items()]
 
 
-# TODO: Tải file PDF/DOCX về DATA_DIR
-# Có thể tải thủ công hoặc viết script download nếu có direct link.
+def create_demo_legal_documents(limit: int = 3) -> list[Path]:
+    """Create PDF fixtures from pre-standardized Markdown for an offline demo.
+
+    These are explicitly reproducible fixtures, not replacements for original
+    legal files. They allow the Task 1 -> Task 3 pipeline and its tests to run
+    when the team has only the curated Markdown corpus.
+    """
+    from fpdf import FPDF
+
+    setup_directory()
+    sources = sorted(path for path in STANDARDIZED_DIR.glob("*.md") if path.name != ".gitkeep")[:limit]
+    if len(sources) < limit:
+        raise RuntimeError(f"Need at least {limit} Markdown files in {STANDARDIZED_DIR}")
+    outputs = []
+    for source in sources:
+        # Built-in FPDF fonts are Latin-1. Normalising preserves a readable
+        # offline fixture while the canonical Vietnamese corpus stays untouched.
+        text = unicodedata.normalize("NFKD", source.read_text(encoding="utf-8"))
+        text = text.encode("latin-1", "replace").decode("latin-1")
+        text = re.sub(r"\n{3,}", "\n\n", text)
+        output = DATA_DIR / f"{source.stem}.pdf"
+        pdf = FPDF()
+        pdf.set_auto_page_break(auto=True, margin=15)
+        pdf.add_page()
+        pdf.set_font("Helvetica", size=10)
+        for paragraph in text.splitlines():
+            # Reset x to the left margin after every cell; otherwise FPDF keeps
+            # the cursor at the right edge and eventually has no usable width.
+            pdf.multi_cell(0, 5, paragraph or " ", new_x="LMARGIN", new_y="NEXT")
+        pdf.output(str(output))
+        outputs.append(output)
+    return outputs
+
+
+# Download PDF/DOCX trực tiếp bằng ``download_file`` hoặc ``download_documents``.
 #
 # Ví dụ nếu có direct link:
 #

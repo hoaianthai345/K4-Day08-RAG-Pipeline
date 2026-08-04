@@ -22,10 +22,12 @@ tiêu đề mà không có nội dung, đổi sang bài viết khác cùng domai
 
 import asyncio
 import json
+import re
 from datetime import datetime
 from pathlib import Path
 
 DATA_DIR = Path(__file__).parent.parent / "data" / "landing" / "news"
+STANDARDIZED_DIR = Path(__file__).parent.parent / "data" / "standardized" / "news"
 
 
 def setup_directory():
@@ -33,7 +35,6 @@ def setup_directory():
     DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 
-# TODO: Điền danh sách URL bài viết cần crawl
 ARTICLE_URLS = [
     "https://help.shopee.vn/portal/4/article/79583",
     "https://help.shopee.vn/portal/4/article/79563",
@@ -90,6 +91,33 @@ async def crawl_all():
         filepath = DATA_DIR / filename
         filepath.write_text(json.dumps(article, ensure_ascii=False, indent=2))
         print(f"  ✓ Saved: {filepath}")
+
+
+def create_demo_articles_from_standardized(limit: int = 5) -> list[Path]:
+    """Materialize JSON crawl fixtures from the curated Markdown corpus.
+
+    This reproducible offline path is for the lab environment only; use
+    ``crawl_all`` when collecting fresh web pages.
+    """
+    setup_directory()
+    markdown_files = sorted(path for path in STANDARDIZED_DIR.glob("*.md") if path.name != ".gitkeep")[:limit]
+    if len(markdown_files) < limit:
+        raise RuntimeError(f"Need at least {limit} Markdown files in {STANDARDIZED_DIR}")
+    output_paths = []
+    for index, markdown_file in enumerate(markdown_files, 1):
+        raw = markdown_file.read_text(encoding="utf-8")
+        title_match = re.search(r"^title:\s*[\"']?(.*?)[\"']?\s*$", raw, re.MULTILINE)
+        url_match = re.search(r"^source_url:\s*(.+)$", raw, re.MULTILINE)
+        article = {
+            "url": url_match.group(1).strip() if url_match else "not-stated",
+            "title": title_match.group(1).strip() if title_match else markdown_file.stem,
+            "date_crawled": datetime.now().isoformat(timespec="seconds"),
+            "content_markdown": raw,
+        }
+        output = DATA_DIR / f"article_{index:02d}.json"
+        output.write_text(json.dumps(article, ensure_ascii=False, indent=2), encoding="utf-8")
+        output_paths.append(output)
+    return output_paths
 
 
 if __name__ == "__main__":
