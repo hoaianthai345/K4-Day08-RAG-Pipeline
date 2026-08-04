@@ -1,17 +1,288 @@
 [
   {
-    "question": "Người mua có thể yêu cầu trả hàng/hoàn tiền trong thời hạn bao lâu sau khi nhận hàng?",
-    "expected_answer": "Trong vòng 15 ngày kể từ khi giao hàng thành công (24 giờ đối với thực phẩm tươi sống/đông lạnh).",
-    "expected_context": "Trang Returns and Refunds Policy, mục Return/Refund Eligibility"
+    "id": "Q01",
+    "question": "Sau khi mua thành công, tôi nhận E-Voucher ở đâu?",
+    "expected_answer": "Vào mục Thông Báo > mục Khuyến mãi, rồi chọn thông báo có chứa tên E-Voucher bạn vừa mua. E-Voucher thường được gửi ngay sau khi bạn hoàn tất thanh toán 100%.",
+    "evidence": "Bước 1: Kiểm tra mục Thông Báo > Mục Khuyến mãi / Bước 2: Chọn thông báo có chứa tên E-Voucher bạn vừa mua",
+    "expected_sources": ["evoucher-nhan-sau-khi-mua.md"],
+    "customer_role": "buyer",
+    "category": "procedural",
+    "difficulty": "easy",
+    "answerable": true,
+    "note": "Corpus chỉ có 1 chunk cho file này — trượt chunk đó là hỏng câu trả lời."
   },
   {
-    "question": "Shopee hỗ trợ những phương thức thanh toán nào?",
-    "expected_answer": "ShopeePay Wallet, thẻ tín dụng/ghi nợ, trả góp qua thẻ, QR Code, chuyển khoản qua app ngân hàng, thẻ NAPAS, Apple Pay, Google Pay, và COD.",
-    "expected_context": "Trang Payment Methods Overview"
+    "id": "Q02",
+    "question": "Các bước đặt món trên ShopeeFood là gì?",
+    "expected_answer": "Truy cập mục ShopeeFood tại trang chủ Shopee > chọn nhà hàng và món > chọn Giao hàng > chọn Voucher và Shopee Xu (nếu có) > chọn Phương thức thanh toán khả dụng > chọn Đặt đơn.",
+    "evidence": "Truy cập mục ShopeeFood tại trang chủ Shopee > Chọn nhà hàng và món yêu thích của bạn để tiến hành đặt món > chọn Giao hàng > Chọn Voucher và Shopee Xu (nếu có) > Chọn Phương thức thanh toán khả dụng > chọn Đặt đơn.",
+    "expected_sources": ["shopeefood-dat-mon.md"],
+    "customer_role": "buyer",
+    "category": "procedural",
+    "difficulty": "easy",
+    "answerable": true
   },
   {
-    "question": "Người bán không được đăng bán những sản phẩm nào?",
-    "expected_answer": "Hàng giả/nhái, sản phẩm bất hợp pháp, vi phạm sở hữu trí tuệ, và các mặt hàng nằm trong danh sách cấm của sàn.",
-    "expected_context": "Trang Product Listing Regulations, mục Prohibited Content"
+    "id": "Q03",
+    "question": "Điều kiện bắt buộc để liên kết được tài khoản ShopeeFood với tài khoản Shopee là gì?",
+    "expected_answer": "Số điện thoại đăng ký trên ShopeeFood và số điện thoại đăng ký trên Shopee phải giống nhau.",
+    "evidence": "bạn cần đảm bảo Số điện thoại đăng ký trên ShopeeFood và Số điện thoại đăng ký trên Shopee là giống nhau",
+    "expected_sources": ["shopeefood-lien-ket-tai-khoan.md"],
+    "customer_role": "both",
+    "category": "factual",
+    "difficulty": "easy",
+    "answerable": true
+  },
+  {
+    "id": "Q04",
+    "question": "Nếu tôi đổi số điện thoại đăng ký trên Shopee thì liên kết với ShopeeFood có bị sao không?",
+    "expected_answer": "Liên kết sẽ mất hiệu lực. Muốn liên kết lại với tài khoản cũ thì phải đổi lại số điện thoại như cũ rồi thao tác liên kết lại từ đầu.",
+    "evidence": "Liên kết sẽ mất hiệu lực khi bạn tiến hành thay đổi số điện thoại đăng ký trên Shopee hoặc ShopeeFood.",
+    "expected_sources": ["shopeefood-lien-ket-tai-khoan.md"],
+    "customer_role": "both",
+    "category": "inference",
+    "difficulty": "medium",
+    "answerable": true,
+    "note": "Câu hỏi diễn đạt khác hẳn tài liệu — thiên về semantic search, BM25 khó khớp."
+  },
+  {
+    "id": "Q05",
+    "question": "Tôi chưa có tài khoản ShopeeFood thì liên kết kiểu gì?",
+    "expected_answer": "Khi liên kết với tài khoản Shopee, một tài khoản ShopeeFood mới sẽ được tạo tự động với số điện thoại bạn đã đăng ký trên Shopee.",
+    "evidence": "Nếu chưa có tài khoản ShopeeFood, khi liên kết với tài khoản Shopee, một tài khoản ShopeeFood mới sẽ được tạo với số điện thoại bạn đăng ký trên Shopee.",
+    "expected_sources": ["shopeefood-lien-ket-tai-khoan.md"],
+    "customer_role": "both",
+    "category": "factual",
+    "difficulty": "medium",
+    "answerable": true
+  },
+  {
+    "id": "Q06",
+    "question": "Dùng SPayLater trả cho đơn ShopeeFood thì được trả sau tối đa bao nhiêu ngày?",
+    "expected_answer": "Lên đến 45 ngày, với lựa chọn kỳ hạn thanh toán 1 kỳ (mua trước trả sau).",
+    "evidence": "lựa chọn kỳ hạn thanh toán 1 kỳ (mua trước trả sau lên đến 45 ngày)",
+    "expected_sources": ["spaylater-thanh-toan-shopeefood.md"],
+    "customer_role": "buyer",
+    "category": "numeric",
+    "difficulty": "easy",
+    "answerable": true,
+    "note": "Con số chính xác — BM25 khớp tốt '45 ngày'."
+  },
+  {
+    "id": "Q07",
+    "question": "Giá trị thanh toán tối thiểu khi dùng SPayLater cho đơn ShopeeFood là bao nhiêu?",
+    "expected_answer": "6.000 VNĐ.",
+    "evidence": "Giá trị thanh toán tối thiểu: 6.000 VNĐ",
+    "expected_sources": ["spaylater-thanh-toan-shopeefood.md"],
+    "customer_role": "buyer",
+    "category": "numeric",
+    "difficulty": "easy",
+    "answerable": true
+  },
+  {
+    "id": "Q08",
+    "question": "Cần thỏa những điều kiện nào để thanh toán đơn ShopeeFood bằng SPayLater thành công?",
+    "expected_answer": "Số dư khả dụng SPayLater đủ để thanh toán; không có hóa đơn SPayLater quá hạn chưa thanh toán; giá trị thanh toán tối thiểu 6.000 VNĐ; và tài khoản Shopee/ShopeePay đã kích hoạt thành công SPayLater.",
+    "evidence": "Số dư khả dụng SPayLater của bạn đủ để thanh toán / Bạn không có hóa đơn SPayLater quá hạn chưa thanh toán / Giá trị thanh toán tối thiểu: 6.000 VNĐ / Chỉ những tài khoản ... đã kích hoạt thành công SPayLater",
+    "expected_sources": ["spaylater-thanh-toan-shopeefood.md"],
+    "customer_role": "buyer",
+    "category": "multi_fact",
+    "difficulty": "medium",
+    "answerable": true,
+    "note": "Đáp án gồm 4 ý — kiểm tra context_recall, không chỉ 1 chunk là đủ."
+  },
+  {
+    "id": "Q09",
+    "question": "Phải nhập mật khẩu Ví ShopeePay mấy lần khi thanh toán ShopeeFood bằng SPayLater?",
+    "expected_answer": "01 (một) lần trước khi thanh toán, hoặc dùng phương thức xác thực thanh toán khác đã thiết lập.",
+    "evidence": "bạn phải nhập mã Mật khẩu Ví ShopeePay (hoặc các phương thức xác thực thanh toán khác bạn đã thiết lập) 01 (một) lần trước khi thanh toán",
+    "expected_sources": ["spaylater-thanh-toan-shopeefood.md"],
+    "customer_role": "buyer",
+    "category": "numeric",
+    "difficulty": "medium",
+    "answerable": true
+  },
+  {
+    "id": "Q10",
+    "question": "Tài khoản ngân hàng của tôi báo Từ chối, cập nhật lại thông tin thế nào trên app Shopee?",
+    "expected_answer": "Vào mục Tôi > biểu tượng bánh răng > Tài khoản / Thẻ ngân hàng > chọn tài khoản/thẻ cần cập nhật (thường hiển thị Từ chối) > chọn Sửa > điền chính xác thông tin được yêu cầu > Hoàn thành.",
+    "evidence": "Bước 1: Tại mục Tôi > biểu tượng bánh răng > Tài khoản / Thẻ ngân hàng ... chọn Sửa ... Hoàn thành",
+    "expected_sources": ["tai-khoan-ngan-hang-cap-nhat-thong-tin.md"],
+    "customer_role": "both",
+    "category": "procedural",
+    "difficulty": "easy",
+    "answerable": true
+  },
+  {
+    "id": "Q11",
+    "question": "Tôi hủy đơn đã thanh toán bằng SPayLater thì có được hoàn lại phí chuyển đổi trả góp không?",
+    "expected_answer": "Không. Việc hủy giao dịch được hoàn trả theo Chính sách và Điều khoản của Nền tảng Shopee, nhưng phí chuyển đổi trả góp tương ứng với giao dịch bị hủy vẫn được áp dụng.",
+    "evidence": "Phí chuyển đổi trả góp tương ứng với giao dịch bị hủy sẽ vẫn được áp dụng.",
+    "expected_sources": ["dieu-khoan-dich-vu-spaylater.md"],
+    "customer_role": "buyer",
+    "category": "inference",
+    "difficulty": "hard",
+    "answerable": true,
+    "note": "Bẫy hallucination: LLM rất dễ trả lời 'có được hoàn'. Đáp án đúng là KHÔNG."
+  },
+  {
+    "id": "Q12",
+    "question": "Khi tôi thanh toán từng phần cho hóa đơn SPayLater, số tiền đó được trừ vào đâu trước?",
+    "expected_answer": "Trừ vào gốc trước tiên. Phí trả góp không ảnh hưởng đến hạn mức khả dụng; nếu tính phí ra số lẻ thập phân thì Bên cho vay làm tròn lên.",
+    "evidence": "trong trường hợp thanh toán từng phần cho hóa đơn, số tiền hoàn trả sẽ được sử dụng để hoàn trả gốc trước tiên",
+    "expected_sources": ["dieu-khoan-dich-vu-spaylater.md"],
+    "customer_role": "buyer",
+    "category": "factual",
+    "difficulty": "hard",
+    "answerable": true
+  },
+  {
+    "id": "Q13",
+    "question": "Nợ SPayLater quá hạn lâu ngày thì Shopee có thể khóa những quyền lợi nào?",
+    "expected_answer": "Shopee có quyền phong tỏa các quyền lợi trên Nền tảng Shopee, bao gồm nhưng không giới hạn ở mã giảm giá, mã miễn phí vận chuyển, tính năng SPayLater và/hoặc tài khoản Shopee.",
+    "evidence": "phong tỏa các quyền lợi trên Nền tảng Shopee ... bao gồm nhưng không giới hạn ở quyền lợi mã giảm giá, mã miễn phí vận chuyển, tính năng SPayLater và / hoặc tài khoản Shopee",
+    "expected_sources": ["dieu-khoan-dich-vu-spaylater.md"],
+    "customer_role": "buyer",
+    "category": "multi_fact",
+    "difficulty": "medium",
+    "answerable": true,
+    "note": "Phân biệt với SEasy: 2 file SEasy chỉ nói 'tính năng SEasy và/hoặc tài khoản Shopee', KHÔNG có mã giảm giá/freeship."
+  },
+  {
+    "id": "Q14",
+    "question": "Thanh toán chậm hóa đơn SPayLater thì bị xử lý ra sao?",
+    "expected_answer": "Bị tính phí thanh toán chậm theo Hợp đồng tín dụng. Bên cho vay có quyền liên hệ với bạn và người bạn chỉ định liên lạc khẩn cấp để yêu cầu hoàn trả, và quyền sử dụng Nền tảng Shopee cùng các quyền lợi đi kèm có thể bị tạm ngừng.",
+    "evidence": "bạn sẽ bị tính phí thanh toán chậm theo quy định tại Hợp đồng tín dụng ... Quyền sử dụng Nền tảng Shopee và các quyền lợi đi kèm của bạn có thể bị tạm ngừng trong trường hợp thanh toán trễ.",
+    "expected_sources": ["dieu-khoan-dich-vu-spaylater.md"],
+    "customer_role": "buyer",
+    "category": "multi_fact",
+    "difficulty": "medium",
+    "answerable": true
+  },
+  {
+    "id": "Q15",
+    "question": "Ai đủ tư cách làm Bên vay của dịch vụ SEasy Cho Vay Người Bán?",
+    "expected_answer": "Công dân Việt Nam có phát sinh hoạt động kinh doanh hàng hóa/dịch vụ trên Nền tảng Shopee, đã đăng ký với mục đích nhận Khoản tín dụng theo Hợp đồng tín dụng.",
+    "evidence": "\"Bên vay\" ... có nghĩa là bất kỳ công dân Việt Nam nào có phát sinh hoạt động kinh doanh hàng hóa / dịch vụ trên Nền tảng Shopee",
+    "expected_sources": ["dieu-khoan-dich-vu-seasy-cho-vay-nguoi-ban.md"],
+    "customer_role": "seller",
+    "category": "disambiguation",
+    "difficulty": "hard",
+    "answerable": true,
+    "note": "3 file điều khoản định nghĩa 'Bên vay' gần giống nhau — retrieval phải chọn ĐÚNG file người bán. Đây là phép thử chính cho reranking ở Task 7."
+  },
+  {
+    "id": "Q16",
+    "question": "Định nghĩa Bên vay trong điều khoản SPayLater là gì?",
+    "expected_answer": "Bất kỳ công dân Việt Nam nào đã đăng ký trên Nền tảng Shopee với mục đích nhận Khoản tín dụng thông qua Dịch vụ theo Hợp đồng tín dụng.",
+    "evidence": "\"Bên vay\" hoặc \"bạn\" có nghĩa là bất kỳ công dân Việt Nam nào đã đăng ký trên Nền tảng Shopee với mục đích nhận Khoản tín dụng",
+    "expected_sources": ["dieu-khoan-dich-vu-spaylater.md"],
+    "customer_role": "buyer",
+    "category": "disambiguation",
+    "difficulty": "hard",
+    "answerable": true,
+    "note": "Cặp đối chứng với Q15. Nếu hệ thống trả cùng 1 chunk cho cả Q15 và Q16 thì retrieval không phân biệt được 3 văn bản gần trùng."
+  },
+  {
+    "id": "Q17",
+    "question": "Người bán vi phạm hợp đồng tín dụng SEasy thì Shopee có được tự trừ tiền trong tài khoản không?",
+    "expected_answer": "Có. Shopee có quyền cấn trừ các khoản tiền trong Tài Khoản Đảm Bảo Shopee, số dư tài khoản Shopee, các khoản đặt cọc (nếu có), hoặc bất kỳ khoản tiền/tài sản nào Shopee giữ thay cho Bên vay.",
+    "evidence": "Shopee có quyền cấn trừ các khoản tiền của bạn trong Tài Khoản Đảm Bảo Shopee, Số dư tài khoản Shopee, các khoản đặt cọc của bạn (nếu có)",
+    "expected_sources": ["dieu-khoan-dich-vu-seasy-cho-vay-nguoi-ban.md"],
+    "customer_role": "seller",
+    "category": "disambiguation",
+    "difficulty": "hard",
+    "answerable": true,
+    "note": "Từ 'cấn trừ' CHỈ xuất hiện trong file người bán — kiểm tra được chính xác bằng grep."
+  },
+  {
+    "id": "Q18",
+    "question": "Điều khoản SEasy Cho Vay Người Bán được đăng tải và có hiệu lực từ khi nào?",
+    "expected_answer": "Đăng tải lần đầu tiên ngày 24/7/2023 và có hiệu lực sau 07 ngày kể từ ngày đăng tải.",
+    "evidence": "Đăng tải lần đầu tiên ngày 24/7/2023 và có hiệu lực sau 07 ngày kể từ ngày đăng tải.",
+    "expected_sources": ["dieu-khoan-dich-vu-seasy-cho-vay-nguoi-ban.md"],
+    "customer_role": "seller",
+    "category": "numeric",
+    "difficulty": "medium",
+    "answerable": true
+  },
+  {
+    "id": "Q19",
+    "question": "Điều khoản SEasy Vay Tiền Nhanh được sửa đổi lần gần nhất ngày nào và hiệu lực sau bao lâu?",
+    "expected_answer": "Sửa đổi ngày 14/4/2026, có hiệu lực sau 07 (bảy) ngày kể từ ngày đăng tải trên Nền tảng Shopee.",
+    "evidence": "Điều khoản và Điều kiện của Dịch vụ này được sửa đổi ngày 14/4/2026 và sẽ có hiệu lực sau 07 (bảy) ngày kể từ ngày đăng tải",
+    "expected_sources": ["dieu-khoan-dich-vu-seasy-vay-tien-nhanh.md"],
+    "customer_role": "buyer",
+    "category": "disambiguation",
+    "difficulty": "hard",
+    "answerable": true,
+    "note": "Cặp đối chứng với Q18 — cùng dạng câu hỏi, khác file, khác ngày."
+  },
+  {
+    "id": "Q20",
+    "question": "Nếu bị từ chối cấp khoản tín dụng, tôi có được giải thích lý do không?",
+    "expected_answer": "Không. Quyết định của Bên cho vay là quyết định cuối cùng, và Bên cho vay không có nghĩa vụ cung cấp thông tin hoặc giải thích lý do đưa ra quyết định đó.",
+    "evidence": "Bên cho vay sẽ không có nghĩa vụ cung cấp thông tin hoặc giải thích lý do đưa ra quyết định đó.",
+    "expected_sources": [
+      "dieu-khoan-dich-vu-spaylater.md",
+      "dieu-khoan-dich-vu-seasy-cho-vay-nguoi-ban.md",
+      "dieu-khoan-dich-vu-seasy-vay-tien-nhanh.md"
+    ],
+    "customer_role": "both",
+    "category": "inference",
+    "difficulty": "medium",
+    "answerable": true,
+    "note": "Nội dung có ở CẢ 3 file — trả về file nào cũng tính đúng. Bẫy hallucination: LLM dễ bịa ra quy trình khiếu nại."
+  },
+  {
+    "id": "Q21",
+    "question": "Luật nào điều chỉnh các điều khoản dịch vụ tín dụng này?",
+    "expected_answer": "Pháp luật của Cộng hòa Xã hội Chủ nghĩa Việt Nam.",
+    "evidence": "sẽ được áp dụng bởi luật pháp của Cộng hòa Xã hội Chủ nghĩa Việt Nam",
+    "expected_sources": [
+      "dieu-khoan-dich-vu-spaylater.md",
+      "dieu-khoan-dich-vu-seasy-cho-vay-nguoi-ban.md",
+      "dieu-khoan-dich-vu-seasy-vay-tien-nhanh.md"
+    ],
+    "customer_role": "both",
+    "category": "factual",
+    "difficulty": "easy",
+    "answerable": true
+  },
+  {
+    "id": "Q22",
+    "question": "Tôi muốn trả hàng và hoàn tiền thì có bao nhiêu ngày kể từ khi nhận hàng?",
+    "expected_answer": "Tôi không tìm thấy thông tin này trong tài liệu hiện có.",
+    "evidence": null,
+    "expected_sources": [],
+    "customer_role": "buyer",
+    "category": "out_of_scope",
+    "difficulty": "hard",
+    "answerable": false,
+    "note": "Chính sách trả hàng KHÔNG còn trong corpus. Hệ thống phải từ chối, không được bịa. Đây là câu đo faithfulness thật sự."
+  },
+  {
+    "id": "Q23",
+    "question": "Người bán bị cấm đăng bán những mặt hàng nào trên Shopee?",
+    "expected_answer": "Tôi không tìm thấy thông tin này trong tài liệu hiện có.",
+    "evidence": null,
+    "expected_sources": [],
+    "customer_role": "seller",
+    "category": "out_of_scope",
+    "difficulty": "hard",
+    "answerable": false,
+    "note": "Chính sách sản phẩm cấm không có trong corpus 8 file."
+  },
+  {
+    "id": "Q24",
+    "question": "Phí vận chuyển của Shopee được tính như thế nào?",
+    "expected_answer": "Tôi không tìm thấy thông tin này trong tài liệu hiện có.",
+    "evidence": null,
+    "expected_sources": [],
+    "customer_role": "both",
+    "category": "out_of_scope",
+    "difficulty": "hard",
+    "answerable": false,
+    "note": "Bẫy: cụm 'miễn phí vận chuyển' CÓ xuất hiện trong điều khoản SPayLater (xem Q13), nên retrieval sẽ trả về chunk đó với score không thấp. Kiểm tra pipeline có biết nói 'không đủ căn cứ' hay không."
   }
 ]

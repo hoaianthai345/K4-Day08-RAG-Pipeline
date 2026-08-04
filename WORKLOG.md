@@ -276,4 +276,150 @@ trình đó, `rm -rf chroma_db/`, chạy lại từ đầu.
 > trả lời** → context_recall sẽ tụt thảm. Kiểm tra
 > `group_project/evaluation/golden_dataset.json` khớp với corpus mới trước CP5.
 
+### 10. ✅ ChromaDB đã tạo xong — kết quả cuối trên corpus 8 file
+
+```
+✓ Loaded 8 documents
+✓ Created 92 chunks
+  customer_role: {'buyer': 61, 'seller': 28, 'both': 3}
+✓ Embedded 92 chunks (dim=1024)   ← 12 giây trên CPU
+✓ Indexed to chromadb: 92 chunks
+```
+
+Phân bố chunk trong `chroma_db/` (toàn bộ đến từ `data/standardized/`):
+
+| chunks | file | loại |
+|---:|---|---|
+| 29 | `dieu-khoan-dich-vu-spaylater.md` | legal |
+| 28 | `dieu-khoan-dich-vu-seasy-cho-vay-nguoi-ban.md` | legal |
+| 27 | `dieu-khoan-dich-vu-seasy-vay-tien-nhanh.md` | legal |
+| 3 | `spaylater-thanh-toan-shopeefood.md` | news |
+| 2 | `shopeefood-lien-ket-tai-khoan.md` | news |
+| 1 | `evoucher-nhan-sau-khi-mua.md` | news |
+| 1 | `shopeefood-dat-mon.md` | news |
+| 1 | `tai-khoan-ngan-hang-cap-nhat-thong-tin.md` | news |
+
+**Task 5 semantic search chạy thật:**
+
+| Query | Top-1 | Score |
+|---|---|---|
+| "SPayLater thanh toan ShopeeFood the nao" | `spaylater-thanh-toan-shopeefood.md` | 0.708 |
+| "lam sao nhan e-voucher sau khi mua" | `evoucher-nhan-sau-khi-mua.md` | 0.692 |
+
+**Pytest toàn bộ: `28 passed, 5 skipped, 2 failed`** (2 fail = nợ Task 1/2 ở mục 7).
+
+> **Phản biện 1 — corpus mất cân bằng nghiêm trọng.** 84/92 chunk (91%) là legal,
+> chỉ 8 chunk là news. Riêng 3 file điều khoản SPayLater/SEasy chiếm **84 chunk**,
+> trong khi 5 file news gộp lại chỉ có **8 chunk** (4 file chỉ ra đúng 1 chunk).
+> Hệ quả: câu hỏi vận hành kiểu "làm sao đặt món ShopeeFood" chỉ có **1 chunk duy
+> nhất** để trả lời — trượt 1 chunk đó là hỏng câu trả lời, không có dự phòng.
+> Với top_k=5 thì 4 slot còn lại chắc chắn bị chunk điều khoản pháp lý chiếm chỗ.
+> Cách chữa: hạ `CHUNK_SIZE` riêng cho news, hoặc thêm file news.
+>
+> **Phản biện 2 — `both` gần như biến mất (3/92 = 3%).** Ngược hẳn corpus cũ (72%).
+> Lý do: 3 file legal còn lại đều gắn nhãn theo vai rõ ràng (SPayLater→buyer,
+> SEasy cho vay người bán→seller). **Bây giờ filter `customer_role` mới thật sự
+> có tác dụng** — hỏi với vai `buyer` loại thẳng 28 chunk SEasy-seller. Nhận định
+> "filter chỉ loại được 14%" ở mục 6 **đã sai với corpus mới**, phải bỏ.
+>
+> **Phản biện 3 — score 0.69–0.71 là cao hay thấp?** Chưa có mốc so sánh. Cần
+> chạy vài query **chắc chắn lạc đề** (vd "cách nấu phở") để xem sàn nhiễu ở đâu,
+> rồi mới đặt `score_threshold` cho Task 9. Đặt ngưỡng bằng cảm tính lúc này là
+> đoán mò — đúng cái bẫy mà docstring `task9_retrieval_pipeline.py` đã cảnh báo.
+> → **Đã giải quyết ở mục 11** bằng các câu `out_of_scope` trong golden set.
+
+### 11. Golden set + bộ chấm retrieval offline
+
+**Vấn đề của golden set cũ:** 3 câu hỏi về trả hàng/hoàn tiền, phương thức thanh
+toán, sản phẩm cấm — **cả 3 file nguồn đều đã bị xoá khỏi corpus** (mục 9). Chạy
+RAGAS với nó sẽ ra điểm gần 0 và không nói lên điều gì về chất lượng hệ thống.
+
+**Golden set mới: 24 câu, viết từ nội dung thật của 8 file.** Mỗi câu có:
+
+| Trường | Dùng để làm gì |
+|---|---|
+| `expected_answer` | ground truth cho RAGAS |
+| `evidence` | **câu văn nguyên bản** trong corpus → chấm được retrieval mà không cần LLM |
+| `expected_sources` | file nào chứa đáp án (rỗng nếu ngoài phạm vi) |
+| `customer_role`, `category`, `difficulty` | cắt lát kết quả theo nhóm |
+| `answerable` | `false` = câu **phải bị từ chối**, không được bịa |
+
+Thành phần: 8 easy / 8 medium / 8 hard; 21 câu trả lời được + **3 câu ngoài phạm vi**.
+Các nhóm được thiết kế có chủ đích:
+
+- **`disambiguation` (Q15↔Q16, Q18↔Q19):** cặp câu hỏi *cùng dạng, khác file*.
+  3 văn bản SPayLater / SEasy Người Bán / SEasy Vay Tiền Nhanh là boilerplate gần
+  trùng nhau. Nếu hệ thống trả cùng một chunk cho cả 2 câu trong cặp thì retrieval
+  **không phân biệt được văn bản gần trùng** — đây là phép thử chính cho rerank ở CP3.
+- **Bẫy hallucination (Q11, Q20):** đáp án đúng là "KHÔNG" / "không được giải
+  thích lý do". LLM rất dễ trả lời xuôi tai ngược lại.
+- **Bẫy ngoài phạm vi (Q24):** hỏi phí vận chuyển. Cụm "miễn phí vận chuyển" **có**
+  trong điều khoản SPayLater, nên retrieval sẽ trả về chunk với điểm không thấp —
+  đo được hệ thống có biết nói "không đủ căn cứ" hay chỉ nói theo chunk gần nhất.
+
+**`group_project/evaluation/retrieval_eval.py` — chấm retrieval không cần API key.**
+RAGAS phải gọi LLM để chấm nên tốn tiền và chặn khi thiếu key. Bộ này so
+`evidence` với nội dung chunk trả về, chạy offline, kết quả tất định.
+
+```
+Kiểm tra golden set: OK — mọi evidence đều có trong corpus
+
+            |---- đúng FILE (dễ) ----|--- đúng CHUNK evidence ---|
+method           hit     MRR    prec    ev_hit   ev_MRR   nhiễu max
+semantic       1.000   0.952   0.533     0.905    0.806       0.638
+bm25           1.000   0.976   0.543     0.905    0.819      18.752
+hybrid         1.000   0.976   0.562     0.905    0.810       0.032
+
+ev_hit_rate theo độ khó — trượt câu nào
+method          easy  medium    hard   trượt
+semantic       0.857   0.875   1.000   Q18,Q21
+bm25           1.000   1.000   0.667   Q16,Q17
+hybrid         1.000   0.875   0.833   Q16,Q18
+```
+
+**Ba phát hiện:**
+
+1. **`hit_rate` = 1.000 cho cả ba là chỉ số RÁC, không phải hệ thống hoàn hảo.**
+   Corpus chỉ có 8 file, lấy top-5 thì trúng đúng file gần như chắc chắn. Phải
+   siết xuống mức **chunk có chứa evidence** thì con số mới tách nhau ra
+   (0.905 và ev_MRR 0.806–0.819). Bài học: chỉ số đạt trần ngay lần đo đầu là dấu
+   hiệu **bài đo quá dễ**, không phải dấu hiệu thành công.
+2. **semantic và BM25 mạnh yếu ngược nhau** — đúng lý do cần hybrid:
+   semantic hard **1.000** nhưng trượt Q18/Q21 (dữ kiện nằm cuối văn bản dài);
+   BM25 easy/medium **1.000** nhưng hard chỉ **0.667** (trượt đúng 2 câu
+   disambiguation Q16/Q17 — vì 3 văn bản dùng từ ngữ gần y hệt nhau, TF-IDF không
+   tách được).
+3. **Ngưỡng nhiễu đã đo được, không còn đoán:** câu ngoài phạm vi cho điểm top-1
+   cao nhất là **0.638** (semantic). Score đúng của câu trả lời được là 0.69–0.71
+   → **khoảng cách chỉ ~0.05**. `score_threshold` cho Task 9 phải nằm trong khe hẹp
+   đó; đặt 0.5 hay 0.8 đều sai.
+
+> **Phản biện 1 — hybrid CHƯA thắng.** ev_hit 0.905 bằng semantic và bm25; ev_MRR
+> 0.810 còn **thua bm25** (0.819). Nó chỉ hơn ở `prec` (0.562). Nói "hybrid tốt hơn"
+> lúc này là nói sai số liệu. Nhiệm vụ của CP3 (RRF + rerank) chính là kéo ev_MRR
+> lên trên 0.819, và giờ đã có thước đo để chứng minh.
+>
+> **Phản biện 2 — "nhiễu max" của BM25 (18.752) KHÔNG so được với semantic (0.638).**
+> BM25 không chuẩn hoá về [0,1]. Đây chính là cái bẫy mà docstring
+> `task9_retrieval_pipeline.py` cảnh báo: trộn 2 thang điểm khác nhau rồi đặt 1
+> ngưỡng chung là vô nghĩa. Ngưỡng phải đặt trên **điểm cosine gốc của semantic**.
+>
+> **Phản biện 3 — n=24 là quá nhỏ để kết luận chắc.** Mỗi câu nặng 4.8% ev_hit_rate;
+> chênh lệch 0.905 vs 0.857 chỉ là **1 câu**. Đủ để chỉ ra xu hướng và tìm lỗi, KHÔNG
+> đủ để tuyên bố config A thắng config B. Khi báo cáo A/B ở CP5 phải nói rõ cỡ mẫu.
+>
+> **Phản biện 4 — golden set do chính người làm hệ thống viết là có thiên lệch.**
+> Tôi viết câu hỏi sau khi đã đọc corpus, nên câu hỏi vô thức bám theo từ ngữ của
+> tài liệu → **đánh giá cao hơn thực tế**. Người dùng thật hỏi lệch hơn nhiều.
+> Giảm thiểu phần nào bằng Q04/Q05/Q10 (diễn đạt khác hẳn tài liệu), nhưng cách
+> chữa thật là để **người khác trong nhóm viết câu hỏi mà không đọc corpus trước**.
+>
+> **Phản biện 5 — bug đã bắt được nhờ có bước validate.** Lần chạy đầu Q18/Q21
+> "trượt", trông y hệt lỗi retrieval. Thực tế là **lệch chuẩn Unicode**: corpus
+> dùng dạng tổ hợp dấu khác với JSON golden set, hai chuỗi hiện ra giống hệt nhau
+> nhưng `in` trả về `False`. Đã sửa bằng `unicodedata.normalize("NFC", ...)` trong
+> `_norm()`. Nếu không có `validate_golden_set()` thì lỗi này sẽ bị đọc nhầm thành
+> "retrieval kém" và cả nhóm đi tối ưu nhầm chỗ. **Mọi bộ đo phải tự kiểm tra
+> trước khi tin vào số nó in ra.**
+
 ---
