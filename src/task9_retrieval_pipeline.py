@@ -42,6 +42,12 @@ DEFAULT_TOP_K = 5
 RERANK_METHOD = "rrf"  # "cross_encoder" | "mmr" | "rrf"
 
 
+def _chunk_key(item: dict) -> tuple:
+    """Stable identity shared by dense, sparse and fused result objects."""
+    metadata = item.get("metadata", {})
+    return (metadata.get("source"), metadata.get("chunk_index"), item.get("content", ""))
+
+
 def retrieve(
     query: str,
     top_k: int = DEFAULT_TOP_K,
@@ -81,9 +87,19 @@ def retrieve(
     # Keep the raw dense cosine score separate from the fused RRF score.
     dense_results = semantic_search(query, top_k=top_k * 2)
     sparse_results = lexical_search(query, top_k=top_k * 2)
+    dense_scores = {_chunk_key(item): item["score"] for item in dense_results}
+    sparse_scores = {_chunk_key(item): item["score"] for item in sparse_results}
     merged = rerank_rrf([dense_results, sparse_results], top_k=top_k * 2)
     for item in merged:
         item["source"] = "hybrid"
+        key = _chunk_key(item)
+        # RRF is a rank-fusion score (~0.01–0.03 with k=60), not a
+        # semantic-confidence score. Preserve all values for transparent UI.
+        item["retrieval_scores"] = {
+            "rrf": item["score"],
+            "dense_cosine": dense_scores.get(key),
+            "bm25": sparse_scores.get(key),
+        }
     final_results = rerank(query, merged, top_k=top_k, method=RERANK_METHOD) if use_reranking else merged[:top_k]
     best_dense_score = dense_results[0]["score"] if dense_results else 0.0
     if best_dense_score < score_threshold:
