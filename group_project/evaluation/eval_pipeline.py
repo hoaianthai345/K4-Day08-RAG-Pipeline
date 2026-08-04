@@ -6,6 +6,7 @@ clear installation requirement instead of failing at import time.
 """
 
 import json
+import os
 from collections.abc import Callable
 from pathlib import Path
 
@@ -25,20 +26,56 @@ def _generate(pipeline, question: str, **kwargs) -> dict:
     return generator(question, **kwargs)
 
 
-def evaluate_with_ragas(rag_pipeline, golden_dataset: list[dict]):
-    """Run faithfulness, answer relevance, context recall and precision."""
-    from datasets import Dataset
-    from ragas import evaluate
-    from ragas.metrics import answer_relevancy, context_precision, context_recall, faithfulness
+def _stub_vertexai():
+    """
+    ragas import `langchain_community.chat_models.vertexai`, module đã bị gỡ khỏi
+    langchain-community >= 0.4. Ta không dùng VertexAI, chỉ cần thoả import.
 
-    records = {"question": [], "answer": [], "contexts": [], "ground_truth": []}
+    Chọn stub thay vì hạ langchain-community xuống 0.3.x, vì hạ sẽ kéo theo
+    langchain-core và có thể làm hỏng langchain_text_splitters mà Task 4 đang dùng.
+    """
+    import sys
+    import types
+
+    name = "langchain_community.chat_models.vertexai"
+    if name not in sys.modules:
+        module = types.ModuleType(name)
+        module.ChatVertexAI = object
+        sys.modules[name] = module
+
+
+def evaluate_with_ragas(rag_pipeline, golden_dataset: list[dict]):
+    """Chấm faithfulness, answer relevance, context recall, context precision."""
+    _stub_vertexai()
+    from langchain_openai import ChatOpenAI
+    from ragas import EvaluationDataset, evaluate
+    from ragas.llms import LangchainLLMWrapper
+    from ragas.metrics import (
+        Faithfulness,
+        LLMContextPrecisionWithReference,
+        LLMContextRecall,
+        ResponseRelevancy,
+    )
+
+    llm = LangchainLLMWrapper(ChatOpenAI(model=os.getenv("OPENAI_MODEL", "gpt-4o-mini")))
+
+    rows = []
     for item in golden_dataset:
         result = _generate(rag_pipeline, item["question"])
-        records["question"].append(item["question"])
-        records["answer"].append(result.get("answer", ""))
-        records["contexts"].append([chunk.get("content", "") for chunk in result.get("sources", [])])
-        records["ground_truth"].append(item["expected_answer"])
-    return evaluate(Dataset.from_dict(records), metrics=[faithfulness, answer_relevancy, context_recall, context_precision]).to_pandas()
+        rows.append({
+            "user_input": item["question"],
+            "response": result.get("answer", ""),
+            "retrieved_contexts": [c.get("content", "") for c in result.get("sources", [])] or [""],
+            "reference": item["expected_answer"],
+        })
+
+    metrics = [
+        Faithfulness(llm=llm),
+        ResponseRelevancy(llm=llm),
+        LLMContextRecall(llm=llm),
+        LLMContextPrecisionWithReference(llm=llm),
+    ]
+    return evaluate(EvaluationDataset.from_list(rows), metrics=metrics).to_pandas()
 
 
 def evaluate_with_deepeval(rag_pipeline, golden_dataset: list[dict]):
@@ -99,8 +136,17 @@ def compare_configs(rag_pipeline, golden_dataset: list[dict]) -> dict:
     }
 
 
+RAW_TABLES_PATH = RESULTS_PATH.parent / "results_raw_tables.md"
+
+
 def export_results(results, comparison: dict) -> Path:
-    """Write score tables for the selected evaluation and A/B comparison."""
+    """
+    Ghi bảng điểm thô từng câu ra results_raw_tables.md.
+
+    KHÔNG ghi vào results.md: đó là báo cáo viết tay (phân tích, root cause,
+    khuyến nghị). Bản đầu của hàm này trỏ vào results.md và đã xoá sạch báo cáo
+    một lần — số liệu thô và diễn giải phải nằm ở hai file khác nhau.
+    """
     def table(value) -> str:
         if hasattr(value, "to_markdown"):
             return value.to_markdown(index=False)
@@ -112,11 +158,17 @@ def export_results(results, comparison: dict) -> Path:
     content += "\n\n## A/B Comparison\n"
     for name, value in comparison.items():
         content += f"\n### {name}\n\n{table(value)}\n"
-    RESULTS_PATH.write_text(content + "\n", encoding="utf-8")
-    return RESULTS_PATH
+    RAW_TABLES_PATH.write_text(content + "\n", encoding="utf-8")
+    return RAW_TABLES_PATH
 
 
-REFUSAL_MARKERS = ("không tìm thấy", "không có thông tin", "không đủ", "không thể trả lời")
+# Prompt Task 10 có thể diễn đạt việc từ chối theo nhiều cách. Thiếu 1 biến thể là
+# refusal_rate tụt về 0 và bị đọc nhầm thành "hệ thống bịa" — đã xảy ra thật ở lần
+# đo đầu với biến thể "không thể xác minh".
+REFUSAL_MARKERS = (
+    "không tìm thấy", "không có thông tin", "không đủ", "không thể trả lời",
+    "không thể xác minh", "không đề cập", "không được nêu", "ngoài phạm vi",
+)
 
 
 def evaluate_refusal(pipeline, golden_dataset: list[dict]) -> dict:
@@ -145,9 +197,19 @@ def main():
     print(f"Golden set: {len(golden)} câu = {len(answerable)} trả lời được + {len(out_of_scope)} ngoài phạm vi")
 
     comparison = compare_configs(None, answerable)
+    # ragas 0.2.x đặt tên cột context precision là llm_context_precision_with_reference.
+    # Bỏ sót tên này = mất âm thầm 1 trong 4 chỉ số bắt buộc, bảng vẫn in ra bình thường.
+    metric_cols = ["faithfulness", "answer_relevancy", "context_recall",
+                   "context_precision", "llm_context_precision_with_reference"]
     for name, df in comparison.items():
         print(f"\n=== {name} (n={len(answerable)}) ===")
-        print(df[["faithfulness", "answer_relevancy", "context_recall", "context_precision"]].mean().round(4).to_string())
+        cols = [c for c in metric_cols if c in df.columns] or [
+            c for c in df.columns if df[c].dtype.kind == "f"]
+        print(df[cols].mean().round(4).to_string())
+        df.to_csv(RESULTS_PATH.parent / f"raw_{name}.csv", index=False)
+        missing = [c for c in df.columns if df[c].dtype.kind == "f" and c not in cols]
+        if missing:
+            print(f"  (cột float chưa được liệt kê: {missing})")
 
     print(f"\n=== Từ chối câu ngoài phạm vi (n={len(out_of_scope)}) ===")
     for name, use_rr in [("B_baseline_no_rerank", False), ("A_hybrid_rerank", True)]:
@@ -156,8 +218,7 @@ def main():
         for row in r["rows"]:
             print(f"   {row['id']} {'TU CHOI' if row['refused'] else 'TRA LOI '} | {row['answer'][:110]}")
 
-    export_results(comparison["A_hybrid_rerank"], comparison)
-    print(f"\nĐã ghi {RESULTS_PATH}")
+    print(f"\nĐã ghi bảng thô: {export_results(comparison['A_hybrid_rerank'], comparison)}")
 
 
 if __name__ == "__main__":
