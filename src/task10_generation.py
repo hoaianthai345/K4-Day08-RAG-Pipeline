@@ -111,7 +111,9 @@ def format_context(chunks: list[dict]) -> str:
 # GENERATION
 # =============================================================================
 
-def generate_with_citation(query: str, top_k: int = TOP_K) -> dict:
+def generate_with_citation(
+    query: str, top_k: int = TOP_K, context_chunks: list[dict] | None = None
+) -> dict:
     """
     End-to-end RAG generation có citation.
 
@@ -133,7 +135,7 @@ def generate_with_citation(query: str, top_k: int = TOP_K) -> dict:
             'retrieval_source': str  # 'hybrid' hoặc 'pageindex'
         }
     """
-    chunks = retrieve(query, top_k=top_k)
+    chunks = context_chunks if context_chunks is not None else retrieve(query, top_k=top_k)
     if not chunks:
         return {"answer": "Tôi không thể xác minh thông tin này từ nguồn hiện có.",
                 "sources": [], "retrieval_source": "none"}

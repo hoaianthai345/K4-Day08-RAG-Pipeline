@@ -82,8 +82,22 @@ def retrieve(
             'source': str  # 'hybrid' hoặc 'pageindex'
         }
     """
+    return retrieve_with_trace(query, top_k, score_threshold, use_reranking)["final_results"]
+
+
+def retrieve_with_trace(
+    query: str,
+    top_k: int = DEFAULT_TOP_K,
+    score_threshold: float = SCORE_THRESHOLD,
+    use_reranking: bool = True,
+) -> dict:
+    """Run retrieval and return intermediate stages for UI debugging/evaluation."""
     if not query or top_k <= 0:
-        return []
+        return {
+            "dense_results": [], "sparse_results": [], "fused_results": [],
+            "final_results": [], "best_dense_score": 0.0,
+            "score_threshold": score_threshold, "fallback_used": False,
+        }
     # Keep the raw dense cosine score separate from the fused RRF score.
     dense_results = semantic_search(query, top_k=top_k * 2)
     sparse_results = lexical_search(query, top_k=top_k * 2)
@@ -102,11 +116,21 @@ def retrieve(
         }
     final_results = rerank(query, merged, top_k=top_k, method=RERANK_METHOD) if use_reranking else merged[:top_k]
     best_dense_score = dense_results[0]["score"] if dense_results else 0.0
+    fallback_used = False
     if best_dense_score < score_threshold:
         fallback = pageindex_search(query, top_k=top_k)
         if fallback:
-            return fallback
-    return final_results[:top_k]
+            final_results = fallback
+            fallback_used = True
+    return {
+        "dense_results": dense_results,
+        "sparse_results": sparse_results,
+        "fused_results": merged,
+        "final_results": final_results[:top_k],
+        "best_dense_score": best_dense_score,
+        "score_threshold": score_threshold,
+        "fallback_used": fallback_used,
+    }
 
 
 if __name__ == "__main__":

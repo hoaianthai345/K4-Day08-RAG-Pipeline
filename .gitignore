@@ -17,6 +17,7 @@ data/_tmp_pdf/
 *.tmp
 pageindex_doc_ids.json
 pageindex_pdfs/
+chroma_db/
 
 # IDE
 .vscode/
