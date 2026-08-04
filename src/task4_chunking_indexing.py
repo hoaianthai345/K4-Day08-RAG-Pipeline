@@ -24,7 +24,10 @@ CHROMA_DIR = Path(__file__).parent.parent / "chroma_db"
 CHUNK_SIZE = 800
 # 100 ký tự đệm ở ranh giới để câu quan trọng không bị cắt đôi giữa 2 chunk.
 CHUNK_OVERLAP = 100
-CHUNKING_METHOD = "recursive"  # recursive: an toàn cho markdown pha văn xuôi + list
+# "recursive": an toàn cho markdown pha văn xuôi + list — mặc định.
+# "markdown_header": cắt theo heading trước rồi recursive, chunk mang thêm h1/h2/h3.
+#   Chỉ đáng dùng khi corpus có heading phân cấp thật (xem WORKLOG mục 8).
+CHUNKING_METHOD = "recursive"
 MIN_CHUNK_CHARS = 50   # bỏ mảnh vụn ("A.", "1.") — không mang thông tin, chỉ làm nhiễu
 
 # bge-m3: multilingual, mạnh với tiếng Việt, 1024 chiều, chạy local không cần API key.
@@ -102,23 +105,68 @@ def load_documents() -> list[dict]:
     return documents
 
 
-def chunk_documents(documents: list[dict]) -> list[dict]:
-    """Chunk documents bằng RecursiveCharacterTextSplitter (giữ nguyên metadata)."""
+def _recursive_splitter():
     from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-    splitter = RecursiveCharacterTextSplitter(
+    return RecursiveCharacterTextSplitter(
         chunk_size=CHUNK_SIZE,
         chunk_overlap=CHUNK_OVERLAP,
         separators=["\n\n", "\n", ". ", " ", ""],
     )
+
+
+def split_recursive(content: str, _meta: dict) -> list[tuple[str, dict]]:
+    """Cắt thuần theo ký tự, ưu tiên ranh giới đoạn → câu → từ."""
+    return [(t, {}) for t in _recursive_splitter().split_text(content)]
+
+
+def split_markdown_header(content: str, _meta: dict) -> list[tuple[str, dict]]:
+    """
+    Cắt theo heading markdown trước, rồi cắt tiếp phần quá dài bằng recursive.
+
+    Giữ được ngữ cảnh mục cha: chunk nằm dưới "## Cách nhận E-voucher" mang thêm
+    metadata h2 để retrieval/citation biết đoạn đó thuộc mục nào.
+    """
+    from langchain_text_splitters import MarkdownHeaderTextSplitter
+
+    md = MarkdownHeaderTextSplitter(
+        headers_to_split_on=[("#", "h1"), ("##", "h2"), ("###", "h3")],
+        strip_headers=False,  # giữ dòng heading trong text để BM25 khớp được từ khóa
+    )
+    recursive = _recursive_splitter()
+
+    out = []
+    for section in md.split_text(content):
+        # Heading không đảm bảo độ dài — vẫn phải cắt tiếp cho vừa CHUNK_SIZE
+        for text in recursive.split_text(section.page_content):
+            out.append((text, section.metadata))
+    return out
+
+
+SPLITTERS = {
+    "recursive": split_recursive,
+    "markdown_header": split_markdown_header,
+}
+
+
+def chunk_documents(documents: list[dict], method: str | None = None) -> list[dict]:
+    """
+    Chunk documents theo CHUNKING_METHOD (ghi đè bằng tham số `method` để so sánh).
+
+    Returns:
+        List of {'content': str, 'metadata': dict} — metadata gồm metadata của doc
+        + chunk_index, và h1/h2/h3 nếu dùng markdown_header.
+    """
+    split = SPLITTERS[method or CHUNKING_METHOD]
+
     chunks = []
     for doc in documents:
-        for i, text in enumerate(splitter.split_text(doc["content"])):
+        for i, (text, extra) in enumerate(split(doc["content"], doc["metadata"])):
             if len(text.strip()) < MIN_CHUNK_CHARS:
                 continue  # mảnh vụn (tiêu đề lẻ, gạch đầu dòng rỗng) chỉ làm nhiễu retrieval
             chunks.append({
                 "content": text,
-                "metadata": {**doc["metadata"], "chunk_index": i},
+                "metadata": {**doc["metadata"], **extra, "chunk_index": i},
             })
     return chunks
 

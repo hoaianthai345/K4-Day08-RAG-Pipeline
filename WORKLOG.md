@@ -97,8 +97,33 @@ Hàm mới thêm ngoài skeleton:
 
 ### 5. Môi trường
 
-Cài vào `venv/` (trước đó chỉ có pip): `langchain-text-splitters`, `chromadb`,
-`sentence-transformers`, `rank-bm25`, `numpy`, `python-dotenv`.
+Cài vào `venv/` của repo (trước đó chỉ có pip): `langchain-text-splitters`,
+`chromadb`, `sentence-transformers`, `rank-bm25`, `numpy`, `python-dotenv`.
+
+> **Phản biện — "sao không dùng env đã cài sẵn?"** (câu hỏi đúng, tôi đã bỏ sót
+> bước kiểm tra):
+>
+> Python hệ thống `/Library/Frameworks/Python.framework/Versions/3.13` **đã có
+> sẵn cả 5 package**. Tôi chỉ kiểm tra `./venv/bin/pip list` thấy trống rồi cài
+> luôn, không `find_spec` thử interpreter khác — mất 5 giây mà bỏ qua.
+>
+> Nhưng khi kiểm tra lại thì env đó **hỏng**:
+> ```
+> ImportError: cannot import name 'HybridCache' from 'transformers'
+>   peft/peft_model.py → transformers  (xung đột phiên bản)
+> ```
+> `import sentence_transformers` chết ngay. Dùng env này sẽ phải đi gỡ xung đột
+> `transformers`/`peft`, và sửa nó thì **đụng vào các project khác** đang dùng
+> chung env hệ thống. → Cài vào `venv/` riêng vẫn là lựa chọn đúng, chỉ là tôi
+> đến đúng kết luận bằng đường sai.
+>
+> **Không đổi env nữa**: 1.2GB đã cài xong, và model nằm ở `~/.cache/huggingface`
+> — **dùng chung cho mọi interpreter**, nên đổi env cũng không làm download nhanh
+> hơn một giây nào.
+>
+> **Bài học cho lần sau:** trước khi `pip install`, chạy
+> `python -c "import importlib.util as u; print(u.find_spec('torch'))"` trên các
+> interpreter có mặt. Nhưng "có package" ≠ "dùng được" — vẫn phải thử `import` thật.
 
 > **Phản biện — rủi ro này đã thành hiện thực ngay trong lúc làm:**
 > `sentence-transformers` kéo theo `torch` (venv phình lên **1.2GB**), và lần chạy
@@ -166,5 +191,89 @@ chuẩn), **bỏ qua tầng `landing/`** — tức là Task 1–3 chưa chạy e
 >
 > **Khuyến nghị: hướng 1.** Hướng 2 chỉ nên dùng nếu hết giờ, và nếu dùng thì
 > phải nói thẳng trong demo là dữ liệu landing được tái tạo, không phải bản gốc.
+
+### 8. Thêm chiến lược `markdown_header` (bổ sung sau)
+
+`chunk_documents(documents, method=...)` giờ dispatch qua dict `SPLITTERS`:
+
+| method | Cách hoạt động |
+|---|---|
+| `recursive` (mặc định) | `RecursiveCharacterTextSplitter` thuần |
+| `markdown_header` | `MarkdownHeaderTextSplitter` (`#`→h1, `##`→h2, `###`→h3) cắt theo heading **trước**, rồi `RecursiveCharacterTextSplitter` cắt tiếp từng section cho vừa `CHUNK_SIZE`. Chunk mang thêm metadata `h1/h2/h3`. |
+
+Hai quyết định thiết kế:
+- **Bắt buộc cắt 2 tầng.** `MarkdownHeaderTextSplitter` **không** giới hạn độ dài —
+  nó cắt theo cấu trúc, một section 5000 ký tự vẫn ra 1 chunk 5000 ký tự. Không
+  có tầng recursive phía sau thì vi phạm `CHUNK_SIZE` và fail
+  `test_chunks_respect_size_limit`.
+- **`strip_headers=False`.** Mặc định splitter **xoá** dòng heading khỏi nội dung
+  (chỉ giữ trong metadata). Giữ lại để BM25 còn khớp được từ khóa trong tiêu đề.
+
+**Đo trên corpus thật:**
+
+| method | chunks | median | max | vượt limit | chunk có h2/h3 |
+|---|---|---|---|---|---|
+| `recursive` | 724 | 664 | 800 | 0 | 0 |
+| `markdown_header` | 724 | 664 | 800 | 0 | **28** (3.9%) |
+
+623/724 chunk khác nội dung → hai chiến lược cắt **thật sự khác nhau**, chỉ trùng
+tổng số một cách ngẫu nhiên.
+
+> **Phản biện — trên corpus NÀY, `markdown_header` gần như vô dụng:**
+> Đếm heading từng file: **22/27 file chỉ có đúng 1 dòng `# `**, không có `##`/`###`
+> nào. Cấu trúc thật của văn bản pháp lý Shopee ("A. PHẠM VI VÀ ĐỐI TƯỢNG ÁP DỤNG",
+> "1. Đối tượng áp dụng", "a. ...") nằm ở dạng **đoạn văn thường**, không phải
+> heading markdown. Nên với 22 file đó, `markdown_header` = 1 section duy nhất =
+> **thoái hoá về đúng `recursive`**.
+>
+> Chỉ 5 file có `##` (`dieu-khoan-dich-vu-shopee-mall.md` + 4 file news), cho ra
+> 28 chunk có metadata phân cấp — 3.9% corpus.
+>
+> **Kết luận: giữ `recursive` làm mặc định.** `markdown_header` để đó cho 2 tình
+> huống: (a) corpus tương lai có heading phân cấp thật, (b) cần demo so sánh
+> chiến lược. Nếu muốn `markdown_header` thực sự có tác dụng ở đây thì việc phải
+> làm là ở **Task 3** — sửa bước convert để "A.", "1.", "a." được xuất thành
+> `##`/`###`, chứ không phải sửa Task 4.
+
+### 9. Corpus bị thu hẹp — 27 file → 8 file
+
+Người dùng đã xoá bớt file trong `data/standardized/legal/`. Corpus hiện tại:
+
+| | Trước | Sau |
+|---|---|---|
+| legal | 22 | **3** — `dieu-khoan-dich-vu-spaylater`, `…-seasy-cho-vay-nguoi-ban`, `…-seasy-vay-tien-nhanh` |
+| news | 5 | **5** — evoucher, shopeefood-dat-mon, shopeefood-lien-ket-tai-khoan, spaylater-thanh-toan-shopeefood, tai-khoan-ngan-hang |
+| **tổng** | 27 | **8** |
+
+Chủ đề thu về đúng một cụm: **SPayLater / SEasy / ShopeeFood / e-voucher**.
+
+**Nguồn dữ liệu của ChromaDB:** `STANDARDIZED_DIR.rglob("*.md")` — **chỉ**
+`data/standardized/`, và **chỉ** file `.md`. `sources.csv` nằm cùng thư mục nhưng
+không bị nạp. Không có đường nào khác đi vào index.
+
+**Xử lý:** tiến trình index đang chạy đã nạp 27 file cũ vào bộ nhớ từ lúc khởi
+động → nếu để chạy tiếp sẽ ghi cả 19 file đã xoá vào ChromaDB. Đã `pkill` tiến
+trình đó, `rm -rf chroma_db/`, chạy lại từ đầu.
+
+> **Phản biện 1 — đây chính xác là cái bẫy ghi ở đầu file này.** "Đổi corpus phải
+> xoá `chroma_db/` trước khi reindex." Lần này nó suýt xảy ra thật, và ở dạng khó
+> thấy hơn: không phải collection cũ còn sót, mà là **tiến trình đang chạy giữ
+> snapshot corpus cũ trong RAM**. `reset_collection()` không cứu được, vì nó chạy
+> *bên trong* chính tiến trình đó và sẽ index lại 27 file cũ ngay sau khi xoá.
+> Quy tắc rút ra: **sửa corpus → kill mọi tiến trình index đang chạy, rồi mới
+> reindex.** Không có cách nào phát hiện tự động trong code hiện tại.
+>
+> **Phản biện 2 — corpus 8 file làm yếu vài kết luận trước đó.** Mọi con số ở mục
+> 6 và 8 (740/724 chunks, 532 `both`, 28 chunk có h2/h3) đo trên corpus 27 file,
+> **không còn đúng**. Phải đo lại. Riêng nhận định "22/27 file không có heading
+> phân cấp" thì đảo chiều: trong 8 file còn lại, 4 file news **có** `##`, nên tỉ
+> lệ chunk hưởng lợi từ `markdown_header` sẽ **cao hơn hẳn** — đáng đo lại trước
+> khi kết luận giữ `recursive`.
+>
+> **Phản biện 3 — 8 file có đủ cho RAGAS ở CP5 không?** Corpus hẹp thì retrieval
+> chính xác hơn (ít nhiễu), nhưng golden dataset phải hỏi **trong phạm vi** 8 file
+> này. Câu hỏi về vận chuyển, trả hàng, sản phẩm cấm… giờ **không có tài liệu để
+> trả lời** → context_recall sẽ tụt thảm. Kiểm tra
+> `group_project/evaluation/golden_dataset.json` khớp với corpus mới trước CP5.
 
 ---
