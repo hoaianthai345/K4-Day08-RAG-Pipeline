@@ -27,6 +27,8 @@ và chỉ dùng nguồn công khai/được phép chia sẻ.
 
 from pathlib import Path
 
+import requests
+
 DATA_DIR = Path(__file__).parent.parent / "data" / "landing" / "legal"
 
 
@@ -34,6 +36,33 @@ def setup_directory():
     """Tạo thư mục data/landing/legal/ nếu chưa có."""
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     print(f"✓ Thư mục đã sẵn sàng: {DATA_DIR}")
+
+
+def download_file(url: str, filename: str, timeout: int = 30) -> Path:
+    """Download one original PDF/DOCX file into the landing zone.
+
+    The helper intentionally rejects HTML responses: a help-centre page is not
+    an original legal document and must not be relabelled as PDF/DOCX.
+    """
+    setup_directory()
+    path = DATA_DIR / filename
+    if path.suffix.lower() not in {".pdf", ".doc", ".docx"}:
+        raise ValueError("filename must end in .pdf, .doc, or .docx")
+    response = requests.get(url, timeout=timeout, stream=True)
+    response.raise_for_status()
+    if "text/html" in response.headers.get("content-type", "").lower():
+        raise ValueError(f"{url} returned HTML, not an original document")
+    payload = response.content
+    if len(payload) <= 1024:
+        raise ValueError(f"Downloaded file is too small ({len(payload)} bytes)")
+    path.write_bytes(payload)
+    print(f"✓ Saved: {path}")
+    return path
+
+
+def download_documents(documents: dict[str, str]) -> list[Path]:
+    """Download a mapping of ``filename -> direct URL``."""
+    return [download_file(url, filename) for filename, url in documents.items()]
 
 
 # TODO: Tải file PDF/DOCX về DATA_DIR

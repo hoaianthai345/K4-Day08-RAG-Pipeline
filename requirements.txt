@@ -1,42 +1,46 @@
+﻿# Tested dependency set for Python 3.11 and RAGAS 0.1.x
+# Keep these pins together: RAGAS 0.1.21 requires LangChain Core < 0.3.
+
 # Core
-python-dotenv>=1.0.0
-requests>=2.31.0
-numpy>=1.24.0
+python-dotenv==1.0.1
+requests==2.32.3
+numpy==1.26.4
 
 # Task 2 - Crawling
-crawl4ai>=0.3.0
+crawl4ai==0.8.5
+litellm==1.53.1
 
 # Task 3 - Document conversion
-markitdown[pdf]>=0.1.0
-fpdf2>=2.7.0
+markitdown[pdf]==0.1.7
+fpdf2==2.8.3
 
 # Task 4 - Chunking & Indexing
-langchain-text-splitters>=0.2.0
-chromadb>=0.5.0
+langchain-text-splitters==0.2.4
+chromadb==0.5.23
 
-# Task 4/5 - Embedding provider (mac dinh: sentence_transformers, local, khong can API key)
-# Doi provider qua bien EMBEDDING_PROVIDER trong .env: sentence_transformers | google | openai
-sentence-transformers>=2.2.0
-# google-generativeai>=0.5.0  # Chi can neu EMBEDDING_PROVIDER=google (khong can neu dung mac dinh)
-# openai (provider "openai") da co san o muc Task 10 ben duoi, khong can cai them
+# Task 4/5 - Embedding provider
+sentence-transformers==3.2.1
+# google-generativeai>=0.5.0  # Required only when EMBEDDING_PROVIDER=google
 
 # Task 6 - BM25 + TF-IDF
-rank-bm25>=0.2.2
-scikit-learn>=1.3.0
+rank-bm25==0.2.2
+scikit-learn==1.5.2
 
 # Task 8 - PageIndex
-pageindex>=0.1.0
+pageindex==0.1.7
 
 # Task 10 - Generation
-openai>=1.30.0
+openai==1.55.3
 
 # Group project - UI
-streamlit>=1.35.0
+streamlit==1.40.2
 
 # Group project - Evaluation
 ragas==0.1.21
-datasets>=2.14.0
-langchain-openai>=0.1.0
+datasets==2.21.0
+langchain-openai==0.1.25
 
-# Testing (dung de cham diem bai ca nhan)
-pytest>=7.0.0
+# Testing
+pytest==8.3.4
+
+

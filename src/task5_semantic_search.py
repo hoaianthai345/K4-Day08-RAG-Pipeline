@@ -8,7 +8,13 @@ index nằm cùng không gian.
 from .task4_chunking_indexing import get_collection, get_embedding_model
 
 
-def semantic_search(query: str, top_k: int = 10, customer_role: str | None = None) -> list[dict]:
+def hyde_query(query: str) -> str:
+    """Create an offline HyDE-style expansion for multilingual dense retrieval."""
+    return f"Hướng dẫn và chính sách Shopee liên quan đến: {query.strip()}"
+
+
+def semantic_search(query: str, top_k: int = 10, customer_role: str | None = None,
+                    use_hyde: bool = False) -> list[dict]:
     """
     Tìm kiếm ngữ nghĩa bằng cosine similarity.
 
@@ -20,12 +26,14 @@ def semantic_search(query: str, top_k: int = 10, customer_role: str | None = Non
     Returns:
         List of {'content', 'score', 'metadata'} sorted by score descending.
     """
+    if not query or top_k <= 0:
+        return []
     collection = get_collection()
     if collection.count() == 0:
         return []
 
     query_vector = get_embedding_model().encode(
-        query, normalize_embeddings=True
+        hyde_query(query) if use_hyde else query, normalize_embeddings=True
     ).tolist()
 
     where = None
