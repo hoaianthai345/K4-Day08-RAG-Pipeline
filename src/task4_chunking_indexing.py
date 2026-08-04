@@ -1,7 +1,7 @@
 """
 Task 4 — Chunking & Indexing vào Vector Store (ChromaDB).
 
-Pipeline: load .md (data/standardized/) → chunk → embed (bge-m3) → index (ChromaDB).
+Pipeline: load .md (data/standardized/) → chunk → embed (OpenAI API) → index (ChromaDB).
 
 Lưu ý: đổi corpus thì phải xóa chroma_db/ trước khi reindex, nếu không chunk cũ
 và mới sẽ lẫn lộn trong cùng collection. run_pipeline() tự xóa collection cũ.
@@ -35,12 +35,16 @@ CHUNK_OVERLAP = 100
 CHUNKING_METHOD = "recursive"
 MIN_CHUNK_CHARS = 50   # bỏ mảnh vụn ("A.", "1.") — không mang thông tin, chỉ làm nhiễu
 
-# bge-m3: multilingual, mạnh với tiếng Việt, 1024 chiều, chạy local không cần API key.
-# Đã thử chuyển sang OpenAI text-embedding-3-large (commit c6c8eed) và phải quay lại:
-# cần API key + tốn tiền mỗi lần reindex, và 3072 chiều không khớp chroma_db đã index
-# ở 1024. Model dùng để index (Task 4) và để embed query (Task 5) BẮT BUỘC giống nhau.
-EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "BAAI/bge-m3")
-EMBEDDING_DIM = int(os.getenv("EMBEDDING_DIM", 1024))
+# The API model keeps the application lightweight: no local model download or
+# GPU requirement.  Use the exact same model/dimension for indexing and query.
+EMBEDDING_MODEL = os.getenv("OPENAI_EMBEDDING_MODEL", "text-embedding-3-large")
+_DEFAULT_DIMENSIONS = {
+    "text-embedding-3-small": 1536,
+    "text-embedding-3-large": 3072,
+}
+EMBEDDING_DIM = int(
+    os.getenv("OPENAI_EMBEDDING_DIMENSIONS", _DEFAULT_DIMENSIONS.get(EMBEDDING_MODEL, 3072))
+)
 
 VECTOR_STORE = "chromadb"  # local persistent, cosine search, không cần Docker
 COLLECTION_NAME = "ecommerce_support_docs"
@@ -181,10 +185,46 @@ def chunk_documents(documents: list[dict], method: str | None = None) -> list[di
 
 @lru_cache(maxsize=1)
 def get_embedding_model():
-    """SentenceTransformer dùng chung cho index (Task 4) và query (Task 5)."""
-    from sentence_transformers import SentenceTransformer
+    """OpenAI embedding client shared by indexing (Task 4) and querying (Task 5)."""
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        raise RuntimeError("Thiếu OPENAI_API_KEY trong .env")
+    from openai import OpenAI
 
-    return SentenceTransformer(EMBEDDING_MODEL)
+    return OpenAIEmbeddingModel(OpenAI(api_key=api_key))
+
+
+class OpenAIEmbeddingModel:
+    """Small compatibility adapter exposing SentenceTransformer-like ``encode``."""
+
+    def __init__(self, client):
+        self.client = client
+
+    def encode(
+        self,
+        texts: str | list[str],
+        batch_size: int = 100,
+        normalize_embeddings: bool = True,
+        show_progress_bar: bool = False,
+    ):
+        import numpy as np
+
+        single_text = isinstance(texts, str)
+        values = [texts] if single_text else list(texts)
+        vectors = []
+        for start in range(0, len(values), batch_size):
+            response = self.client.embeddings.create(
+                model=EMBEDDING_MODEL,
+                input=values[start:start + batch_size],
+                dimensions=EMBEDDING_DIM,
+                encoding_format="float",
+            )
+            vectors.extend(item.embedding for item in response.data)
+        array = np.asarray(vectors, dtype=np.float32)
+        if normalize_embeddings and len(array):
+            norms = np.linalg.norm(array, axis=1, keepdims=True)
+            array = array / np.clip(norms, 1e-12, None)
+        return array[0] if single_text else array
 
 
 def embed_chunks(chunks: list[dict]) -> list[dict]:
@@ -192,7 +232,7 @@ def embed_chunks(chunks: list[dict]) -> list[dict]:
     model = get_embedding_model()
     embeddings = model.encode(
         [c["content"] for c in chunks],
-        batch_size=16,
+        batch_size=100,
         normalize_embeddings=True,
         show_progress_bar=True,
     )
