@@ -215,6 +215,6 @@ Phương sai lên tới **0.06** — lớn hơn cả khoảng cách A/B của Fa
 2. `refusal_rate` báo **0.000** trong khi thực tế là **1.000** — danh sách `REFUSAL_MARKERS` thiếu biến thể *"không thể xác minh"* mà prompt Task 10 dùng. Nếu tin con số đó, báo cáo sẽ kết luận **ngược 180 độ**: rằng hệ thống bịa đặt, trong khi nó đang làm đúng.
 3. `export_results()` ghi đè thẳng vào `results.md`, **xoá sạch báo cáo viết tay** một lần. Đã đổi đích sang `results_raw_tables.md` — số liệu thô và phần diễn giải phải nằm ở hai file khác nhau.
 
-Hai lỗi đầu **không làm chương trình dừng** — chúng chỉ lặng lẽ cho ra con số sai. Đã bổ sung: cảnh báo liệt kê cột float chưa nhận diện, và dump dataframe thô ra `raw_*.csv`. **Một bộ đo im lặng nguy hiểm hơn một bộ đo báo lỗi.**
+Hai lỗi đầu **không làm chương trình dừng** — chúng chỉ âm thầm cho ra con số sai. Đã bổ sung: cảnh báo liệt kê cột float chưa nhận diện, và dump dataframe thô ra `raw_*.csv`. **Một bộ đo im lặng nguy hiểm hơn một bộ đo báo lỗi.**
 
 **Ghi chú môi trường:** `ragas==0.1.21` ghim trong `requirements.txt` **deadlock trên Python 3.13.7** (chạy 2 giờ 04 phút, dùng 3.23 giây CPU, 0 kết nối TCP). Phải nâng lên `ragas==0.2.15` kèm stub cho `langchain_community.chat_models.vertexai` (module đã bị gỡ ở langchain-community ≥ 0.4). **Cần cập nhật `requirements.txt`: `ragas>=0.2.15` + `tabulate`.**
